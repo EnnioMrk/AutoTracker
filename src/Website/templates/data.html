@@ -1,0 +1,277 @@
+{% extends "base.html" %}
+
+{% block title %}AutoTracker - Data Analysis{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <h1 class="text-3xl font-bold text-blue-700 mb-2">Data Analysis</h1>
+    <p class="text-gray-600">Explore and analyze your motion tracking data</p>
+</div>
+
+<div class="bg-white p-6 rounded-lg shadow-md mb-8">
+    <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <div class="space-y-2">
+            <label for="timeRange" class="block text-sm font-medium text-gray-700">Time Range</label>
+            <select id="timeRange" class="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                <option value="1h">Last Hour</option>
+                <option value="24h" selected>Last 24 Hours</option>
+                <option value="7d">Last 7 Days</option>
+                <option value="30d">Last 30 Days</option>
+                <option value="custom">Custom Range</option>
+            </select>
+        </div>
+        
+        <div class="space-y-2">
+            <label for="dataType" class="block text-sm font-medium text-gray-700">Data Type</label>
+            <select id="dataType" class="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                <option value="all" selected>All Data</option>
+                <option value="accel">Accelerometer</option>
+                <option value="gyro">Gyroscope</option>
+                <option value="custom">Custom Metrics</option>
+            </select>
+        </div>
+        
+        <div>
+            <button id="applyFilters" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">
+                Apply Filters
+            </button>
+        </div>
+    </div>
+    
+    <div class="h-80">
+        <canvas id="dataChart"></canvas>
+    </div>
+</div>
+
+<div class="grid md:grid-cols-2 gap-6 mb-8">
+    <div class="bg-white p-6 rounded-lg shadow-md">
+        <h2 class="text-xl font-bold mb-4">Statistical Analysis</h2>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead>
+                    <tr>
+                        <th class="px-4 py-2 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Metric</th>
+                        <th class="px-4 py-2 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Value</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200">
+                    <tr>
+                        <td class="px-4 py-3">Mean Acceleration</td>
+                        <td class="px-4 py-3 font-medium" id="mean-accel">0.00 m/s²</td>
+                    </tr>
+                    <tr>
+                        <td class="px-4 py-3">Standard Deviation</td>
+                        <td class="px-4 py-3 font-medium" id="std-dev">0.00 m/s²</td>
+                    </tr>
+                    <tr>
+                        <td class="px-4 py-3">Peak Acceleration</td>
+                        <td class="px-4 py-3 font-medium" id="peak-accel">0.00 m/s²</td>
+                    </tr>
+                    <tr>
+                        <td class="px-4 py-3">Avg. Rotation Rate</td>
+                        <td class="px-4 py-3 font-medium" id="avg-rotation">0.00°/s</td>
+                    </tr>
+                    <tr>
+                        <td class="px-4 py-3">Max. Rotation Rate</td>
+                        <td class="px-4 py-3 font-medium" id="max-rotation-rate">0.00°/s</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <div class="bg-white p-6 rounded-lg shadow-md">
+        <h2 class="text-xl font-bold mb-4">Data Export</h2>
+        <p class="mb-4 text-gray-600">Download your data for further analysis or backup.</p>
+        
+        <div class="space-y-4">
+            <div class="flex items-center space-x-2">
+                <input type="checkbox" id="includeAccel" checked class="rounded text-blue-500 focus:ring-blue-500">
+                <label for="includeAccel">Include Accelerometer Data</label>
+            </div>
+            <div class="flex items-center space-x-2">
+                <input type="checkbox" id="includeGyro" checked class="rounded text-blue-500 focus:ring-blue-500">
+                <label for="includeGyro">Include Gyroscope Data</label>
+            </div>
+            <div class="flex items-center space-x-2">
+                <input type="checkbox" id="includeCalc" class="rounded text-blue-500 focus:ring-blue-500">
+                <label for="includeCalc">Include Calculated Metrics</label>
+            </div>
+            
+            <div class="flex space-x-3 pt-2">
+                <button class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">
+                    Export CSV
+                </button>
+                <button class="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 transition-colors">
+                    Export JSON
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="bg-white p-6 rounded-lg shadow-md mb-8">
+    <h2 class="text-xl font-bold mb-4">Motion Pattern Analysis</h2>
+    <p class="mb-6 text-gray-600">Detected motion patterns based on collected data.</p>
+    
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead>
+                <tr>
+                    <th class="px-4 py-2 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Pattern Type</th>
+                    <th class="px-4 py-2 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Occurrences</th>
+                    <th class="px-4 py-2 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Avg. Duration</th>
+                    <th class="px-4 py-2 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">Last Detected</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+                <tr>
+                    <td class="px-4 py-3">Linear Motion</td>
+                    <td class="px-4 py-3">24</td>
+                    <td class="px-4 py-3">3.2 seconds</td>
+                    <td class="px-4 py-3">Today, 14:32:47</td>
+                </tr>
+                <tr>
+                    <td class="px-4 py-3">Circular Motion</td>
+                    <td class="px-4 py-3">12</td>
+                    <td class="px-4 py-3">5.7 seconds</td>
+                    <td class="px-4 py-3">Today, 12:15:03</td>
+                </tr>
+                <tr>
+                    <td class="px-4 py-3">Stationary</td>
+                    <td class="px-4 py-3">8</td>
+                    <td class="px-4 py-3">42.3 seconds</td>
+                    <td class="px-4 py-3">Today, 15:24:18</td>
+                </tr>
+                <tr>
+                    <td class="px-4 py-3">Rapid Acceleration</td>
+                    <td class="px-4 py-3">5</td>
+                    <td class="px-4 py-3">1.2 seconds</td>
+                    <td class="px-4 py-3">Today, 11:47:32</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize chart
+    const dataCtx = document.getElementById('dataChart').getContext('2d');
+    const dataChart = new Chart(dataCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [
+                {
+                    label: 'Accelerometer',
+                    data: [],
+                    borderColor: 'rgb(59, 130, 246)',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    tension: 0.4,
+                    fill: true,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Gyroscope',
+                    data: [],
+                    borderColor: 'rgb(16, 185, 129)',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    tension: 0.4,
+                    fill: true,
+                    yAxisID: 'y1'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    title: {
+                        display: true,
+                        text: 'Acceleration (m/s²)'
+                    },
+                    position: 'left'
+                },
+                y1: {
+                    beginAtZero: false,
+                    title: {
+                        display: true,
+                        text: 'Rotation (degrees)'
+                    },
+                    position: 'right',
+                    grid: {
+                        drawOnChartArea: false
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Time'
+                    }
+                }
+            }
+        }
+    });
+    
+    // Function to fetch and update data
+    function updateData() {
+        fetch('/api/data')
+            .then(response => response.json())
+            .then(data => {
+                // Update chart
+                dataChart.data.labels = data.timestamps;
+                dataChart.data.datasets[0].data = data.accelerometer;
+                dataChart.data.datasets[1].data = data.gyroscope;
+                dataChart.update();
+                
+                // Calculate and update stats
+                const accelData = data.accelerometer;
+                const gyroData = data.gyroscope;
+                
+                // Mean acceleration
+                const meanAccel = accelData.reduce((sum, val) => sum + val, 0) / accelData.length;
+                document.getElementById('mean-accel').textContent = meanAccel.toFixed(2) + ' m/s²';
+                
+                // Standard deviation
+                const squareDiffs = accelData.map(value => {
+                    const diff = value - meanAccel;
+                    return diff * diff;
+                });
+                const stdDev = Math.sqrt(squareDiffs.reduce((sum, val) => sum + val, 0) / accelData.length);
+                document.getElementById('std-dev').textContent = stdDev.toFixed(2) + ' m/s²';
+                
+                // Peak acceleration
+                const peakAccel = Math.max(...accelData.map(Math.abs));
+                document.getElementById('peak-accel').textContent = peakAccel.toFixed(2) + ' m/s²';
+                
+                // Average rotation
+                const avgRotation = gyroData.reduce((sum, val) => sum + val, 0) / gyroData.length;
+                document.getElementById('avg-rotation').textContent = avgRotation.toFixed(2) + '°/s';
+                
+                // Max rotation rate
+                const maxRotation = Math.max(...gyroData.map(Math.abs));
+                document.getElementById('max-rotation-rate').textContent = maxRotation.toFixed(2) + '°/s';
+            })
+            .catch(error => console.error('Error fetching data:', error));
+    }
+    
+    // Initial update
+    updateData();
+    
+    // Update when filters change
+    document.getElementById('applyFilters').addEventListener('click', updateData);
+    
+    // Update periodically (every 10 seconds)
+    setInterval(updateData, 10000);
+});
+</script>
+{% endblock %}

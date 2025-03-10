@@ -1,13 +1,14 @@
 import os
 import keyboard
 import serial
+import csv
 
 from config import SERIAL_PORT, BAUD_RATE, LABELS
 
 def get_new_filename(active_label):
     print("Creating file with label:", active_label)
     base_name = "sensor_data"
-    extension = ".txt"
+    extension = ".csv"
 
     index = 0
     if not active_label:
@@ -28,6 +29,7 @@ def main():
 
     recording = False
     file = None
+    csv_writer = None
     active_label = ""
 
     try:
@@ -40,10 +42,12 @@ def main():
                     os.rename(filename, new_filename)
                     active_label = ""
                     file = None
+                    csv_writer = None
                     recording = False
                 else:
-                    filename = "sensor_data.txt"
-                    file = open(filename, "w", encoding="utf-8")
+                    filename = "sensor_data.csv"
+                    file = open(filename, "w", encoding="utf-8", newline='')
+                    csv_writer = csv.writer(file)
                     print(f"Started recording to {filename}...")
                     recording = True
 
@@ -61,8 +65,21 @@ def main():
             if ser.in_waiting > 0:
                 line = ser.readline().decode("utf-8", errors="ignore").strip()
                 if recording and file:
-                    file.write(line + "\n")
-                    file.flush()
+                    # Parse the data from the line
+                    try:
+                        values = line.split('\t')
+                        if len(values) >= 4:
+                            # Skip Hz (first value), reorder to put Z (last value) at the end
+                            # Format: second_value, third_value, fourth_value
+                            second_value = values[1]
+                            third_value = values[2]
+                            z_value = values[3]
+                            
+                            # Write to CSV: second_value, third_value, z_value
+                            csv_writer.writerow([second_value, third_value, z_value])
+                            file.flush()
+                    except Exception as e:
+                        print(f"Error processing data: {e}")
 
     except KeyboardInterrupt:
         print("\nExiting...")

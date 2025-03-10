@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+
+{% block title %}AutoTracker - Dashboard{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <h1 class="text-3xl font-bold text-blue-700 mb-2">Dashboard</h1>
+    <p class="text-gray-600">Real-time monitoring of your motion tracking data</p>
+</div>
+
+<div class="grid lg:grid-cols-2 gap-6 mb-8">
+    <div class="bg-white p-6 rounded-lg shadow-md">
+        <h2 class="text-xl font-bold mb-4">Accelerometer Data</h2>
+        <div class="h-64">
+            <canvas id="accelerometerChart"></canvas>
+        </div>
+    </div>
+    
+    <div class="bg-white p-6 rounded-lg shadow-md">
+        <h2 class="text-xl font-bold mb-4">Gyroscope Data</h2>
+        <div class="h-64">
+            <canvas id="gyroscopeChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<div class="grid md:grid-cols-3 gap-6 mb-8">
+    <div class="bg-white p-6 rounded-lg shadow-md">
+        <h2 class="text-xl font-bold mb-4">Current Status</h2>
+        <div class="flex items-center">
+            <div class="w-4 h-4 rounded-full bg-green-500 mr-2"></div>
+            <span>Active</span>
+        </div>
+        <div class="grid grid-cols-2 gap-4 mt-4">
+            <div>
+                <p class="text-sm text-gray-600">X-Axis</p>
+                <p class="text-xl font-semibold" id="x-value">0.00</p>
+            </div>
+            <div>
+                <p class="text-sm text-gray-600">Y-Axis</p>
+                <p class="text-xl font-semibold" id="y-value">0.00</p>
+            </div>
+            <div>
+                <p class="text-sm text-gray-600">Z-Axis</p>
+                <p class="text-xl font-semibold" id="z-value">0.00</p>
+            </div>
+            <div>
+                <p class="text-sm text-gray-600">Battery</p>
+                <p class="text-xl font-semibold">98%</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="bg-white p-6 rounded-lg shadow-md">
+        <h2 class="text-xl font-bold mb-4">Statistics</h2>
+        <div class="space-y-3">
+            <div>
+                <p class="text-sm text-gray-600">Avg. Acceleration</p>
+                <p class="text-xl font-semibold" id="avg-accel">0.00 m/s²</p>
+            </div>
+            <div>
+                <p class="text-sm text-gray-600">Max. Rotation</p>
+                <p class="text-xl font-semibold" id="max-rotation">0.00°</p>
+            </div>
+            <div>
+                <p class="text-sm text-gray-600">Data Points</p>
+                <p class="text-xl font-semibold">1,248</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="bg-white p-6 rounded-lg shadow-md">
+        <h2 class="text-xl font-bold mb-4">Quick Controls</h2>
+        <div class="space-y-4">
+            <button class="w-full py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">
+                Start Recording
+            </button>
+            <button class="w-full py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 transition-colors">
+                Calibrate Sensors
+            </button>
+            <button class="w-full py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 transition-colors">
+                Export Data
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize charts with empty data
+    const accelerometerCtx = document.getElementById('accelerometerChart').getContext('2d');
+    const gyroscopeCtx = document.getElementById('gyroscopeChart').getContext('2d');
+    
+    const accelerometerChart = new Chart(accelerometerCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Acceleration',
+                data: [],
+                borderColor: 'rgb(59, 130, 246)',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    title: {
+                        display: true,
+                        text: 'Acceleration (m/s²)'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Time'
+                    }
+                }
+            }
+        }
+    });
+    
+    const gyroscopeChart = new Chart(gyroscopeCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Rotation',
+                data: [],
+                borderColor: 'rgb(16, 185, 129)',
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    title: {
+                        display: true,
+                        text: 'Rotation (degrees)'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Time'
+                    }
+                }
+            }
+        }
+    });
+    
+    // Function to update chart data
+    function updateCharts() {
+        fetch('/api/data')
+            .then(response => response.json())
+            .then(data => {
+                // Update charts
+                accelerometerChart.data.labels = data.timestamps;
+                accelerometerChart.data.datasets[0].data = data.accelerometer;
+                accelerometerChart.update();
+                
+                gyroscopeChart.data.labels = data.timestamps;
+                gyroscopeChart.data.datasets[0].data = data.gyroscope;
+                gyroscopeChart.update();
+                
+                // Update stats
+                document.getElementById('x-value').textContent = data.accelerometer[data.accelerometer.length - 1].toFixed(2);
+                document.getElementById('y-value').textContent = data.gyroscope[data.gyroscope.length - 1].toFixed(2);
+                document.getElementById('z-value').textContent = ((data.accelerometer[data.accelerometer.length - 1] + data.gyroscope[data.gyroscope.length - 1])/2).toFixed(2);
+                
+                // Calculate stats
+                const avgAccel = data.accelerometer.reduce((sum, val) => sum + val, 0) / data.accelerometer.length;
+                document.getElementById('avg-accel').textContent = avgAccel.toFixed(2) + ' m/s²';
+                
+                const maxRotation = Math.max(...data.gyroscope.map(Math.abs));
+                document.getElementById('max-rotation').textContent = maxRotation.toFixed(2) + '°';
+            })
+            .catch(error => console.error('Error fetching data:', error));
+    }
+    
+    // Initial update
+    updateCharts();
+    
+    // Update every 2 seconds
+    setInterval(updateCharts, 2000);
+});
+</script>
+{% endblock %}

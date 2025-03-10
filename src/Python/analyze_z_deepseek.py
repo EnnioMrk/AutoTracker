@@ -98,13 +98,12 @@ def build_model(database_path='street_features.json', model_path='street_model.j
 
     model = {}
     for label, features_list in grouped.items():
-        if len(features_list) < 3:
-            print(f"Warning: Label {label} has insufficient samples ({len(features_list)}). Need at least 3.")
-            model_entry = {'mean': {}, 'std': {}}
+        model_entry = {'mean': {}, 'std': {}}
         for feature in features_list[0].keys():
             values = [sample[feature] for sample in features_list]
-            model_entry['mean'][feature] = np.mean(values)
-            model_entry['std'][feature] = np.std(values)
+            model_entry['mean'][feature] = np.mean(values) if values else 0
+            model_entry['std'][feature] = np.std(values) if len(values) > 1 else 0
+
         model[label] = model_entry
 
     with open(model_path, 'w') as f:
@@ -135,8 +134,14 @@ def predict_type(live_features, model_path='street_model.json'):
 
 # Example usage
 if __name__ == "__main__":
-    """# Training phase
-    files_labels = [(), ()]  # List of tuples with file path and label
+    # Training phase
+    files_labels = [("sensor_data_asphalt.txt", "asphalt"),
+                    ("sensor_data_asphalt.txt", "asphalt"),
+                    ("sensor_data_asphalt_1.txt", "asphalt"),
+                    ("sensor_data_bordsteinpflaster.txt", "bordsteinpflaster"),
+                    ("sensor_data_bordsteinpflaster_1.txt", "bordsteinpflaster"),
+                    ("sensor_data_bordsteinpflaster_2.txt", "bordsteinpflaster")
+                    ]  # List of tuples with file path and label
 
     for file_path, label in files_labels:
         features = process_file(file_path)
@@ -144,10 +149,10 @@ if __name__ == "__main__":
             save_features(features, label)
 
     # Build model
-    build_model()"""
+    build_model()
 
     # Live prediction example
-    live_file = "sensor_data.txt"
+    live_file = "sensor_data_asphalt_1_test"
     live_features = process_file(live_file)
     if live_features:
         print("Predicted run type:", predict_type(live_features))

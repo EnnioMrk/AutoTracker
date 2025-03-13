@@ -3,6 +3,7 @@ from filterpy.kalman import ExtendedKalmanFilter, KalmanFilter
 from scipy.spatial.transform import Rotation
 from typing import Any, Optional, Sequence, Tuple
 
+
 # --- Quaternion RK4 Integration ---
 def quaternion_rk4_integration(q: np.ndarray, omega: np.ndarray, dt: float) -> np.ndarray:
     """
@@ -16,16 +17,18 @@ def quaternion_rk4_integration(q: np.ndarray, omega: np.ndarray, dt: float) -> n
     Returns:
         Updated quaternion [w, x, y, z]
     """
+
     def qdot(q_val, omega_val):
         return 0.5 * quaternion_multiply_np(q_val, omega_val)
 
     k1 = qdot(q, omega)
-    k2 = qdot(q + dt/2.0 * k1, omega)
-    k3 = qdot(q + dt/2.0 * k2, omega)
+    k2 = qdot(q + dt / 2.0 * k1, omega)
+    k3 = qdot(q + dt / 2.0 * k2, omega)
     k4 = qdot(q + dt * k3, omega)
 
-    q_next = q + dt/6.0 * (k1 + 2*k2 + 2*k3 + k4)
+    q_next = q + dt / 6.0 * (k1 + 2 * k2 + 2 * k3 + k4)
     return q_next / np.linalg.norm(q_next)  # Normalize the quaternion
+
 
 def quaternion_multiply_np(q: np.ndarray, r: np.ndarray) -> np.ndarray:
     """
@@ -46,8 +49,10 @@ def quaternion_multiply_np(q: np.ndarray, r: np.ndarray) -> np.ndarray:
 # --- Extended Kalman Filter (EKF) ---
 class EKF(ExtendedKalmanFilter):  # Renamed to avoid confusion with ESKF
     """
-    Extended Kalman Filter for IMU sensor fusion. (Same as before, but using RK4)
+    Extended Kalman Filter for IMU sensor fusion.
+    Modified to work with acceleration in g units (1g = 9.81 m/s²)
     """
+
     def __init__(self, dt: float, process_noise: float = 0.01, measurement_noise: float = 0.1,
                  quaternion_process_noise: float = 0.001, gyro_noise: float = 0.01):
         super().__init__(dim_x=10, dim_z=6)
@@ -60,15 +65,20 @@ class EKF(ExtendedKalmanFilter):  # Renamed to avoid confusion with ESKF
         self.P = np.eye(10) * 100
         self.P[6:10, 6:10] = np.eye(4) * 0.1
         self.dt = dt
-        self.gravity_mag = 9.81
-        self.g = np.array([0, 0, self.gravity_mag])
+        self.gravity_mag = 1.0  # Now in g units (1.0g)
+        self.g = np.array([0, 0, self.gravity_mag])  # g vector in g units
+        self.g_mps2 = 9.81  # Conversion factor from g to m/s²
         self.accel_bias = np.zeros(3)
         self.gyro_bias = np.zeros(3)
 
-    # ... (set_gravity_magnitude, set_biases, set_initial_orientation - same as before) ...
     def set_gravity_magnitude(self, gravity_mag: float) -> None:
+        """Set gravity magnitude in g units (1.0 = 1g = 9.81 m/s²)"""
         self.gravity_mag = gravity_mag
         self.g = np.array([0, 0, self.gravity_mag])
+
+    def set_g_conversion_factor(self, g_mps2: float) -> None:
+        """Set the conversion factor from g to m/s² (default is 9.81)"""
+        self.g_mps2 = g_mps2
 
     def set_biases(self, accel_bias: Sequence[float], gyro_bias: Sequence[float]) -> None:
         self.accel_bias = np.array(accel_bias)
@@ -90,13 +100,21 @@ class EKF(ExtendedKalmanFilter):  # Renamed to avoid confusion with ESKF
             ax_b, ay_b, az_b = u[0:3]
             wx, wy, wz = u[3:6]
 
+        # Convert acceleration from g units to m/s²
+        accel_body_g = np.array([ax_b, ay_b, az_b])
+        accel_body_mps2 = accel_body_g * self.g_mps2
+
         quat_converted = [q[1], q[2], q[3], q[0]]
         r = Rotation.from_quat(quat=quat_converted)
-        accel_body = np.array([ax_b, ay_b, az_b])
-        accel_world = r.apply(accel_body) + self.g
 
-        new_pos = pos + vel * dt + 0.5 * accel_world * dt ** 2
-        new_vel = vel + accel_world * dt
+        # Convert gravity from g to m/s² for physics calculations
+        g_mps2 = self.g * self.g_mps2
+
+        # Apply rotation and add gravity (in m/s²)
+        accel_world_mps2 = r.apply(accel_body_mps2) + g_mps2
+
+        new_pos = pos + vel * dt + 0.5 * accel_world_mps2 * dt ** 2
+        new_vel = vel + accel_world_mps2 * dt
 
         # Quaternion update using RK4
         omega = np.array([0.0, wx, wy, wz])
@@ -125,19 +143,26 @@ class EKF(ExtendedKalmanFilter):  # Renamed to avoid confusion with ESKF
         if u is not None and len(u) >= 6:
             u = list(u)
             wx, wy, wz = u[3:6]
-            F[6:10, 6:10] = np.eye(4) + 0.5 * dt * np.array([ # Still using first order jacobian, RK4 improves prediction but not jacobian.
-                [0, -wx, -wy, -wz],
-                [wx,  0,  wz, -wy],
-                [wy, -wz,  0,  wx],
-                [wz,  wy, -wx,  0]
-            ])
+            F[6:10, 6:10] = np.eye(4) + 0.5 * dt * np.array(
+                [  # Still using first order jacobian, RK4 improves prediction but not jacobian.
+                    [0, -wx, -wy, -wz],
+                    [wx, 0, wz, -wy],
+                    [wy, -wz, 0, wx],
+                    [wz, wy, -wx, 0]
+                ])
         return F
 
     def h(self, x: np.ndarray) -> np.ndarray:
+        """
+        Measurement function (accelerometer and gyroscope readings).
+        Returns accelerometer readings in g units.
+        """
         q = x[6:10]
         quat_converted = [q[1], q[2], q[3], q[0]]
         r = Rotation.from_quat(quat=quat_converted)
-        accel_world = -self.g
+
+        # For measurement model, use g units (not m/s²)
+        accel_world = -self.g  # Expected acceleration in g units when stationary
         accel_meas = r.apply(accel_world, inverse=True)
         gyro_meas = np.zeros(3)
         return np.concatenate([accel_meas, gyro_meas])
@@ -149,8 +174,12 @@ class EKF(ExtendedKalmanFilter):  # Renamed to avoid confusion with ESKF
         return H
 
     def _compute_h_quaternion_jacobian(self, q: np.ndarray) -> np.ndarray:
+        """
+        Compute the Jacobian of measurement model with respect to quaternion.
+        Uses gravity in g units.
+        """
         w, x_val, y_val, z_val = q
-        g = self.gravity_mag
+        g = self.gravity_mag  # Use g units for the Jacobian
         return np.array([
             [2 * g * x_val, 2 * g * w, -2 * g * z_val, 2 * g * y_val],
             [2 * g * y_val, 2 * g * z_val, 2 * g * w, -2 * g * x_val],
@@ -162,8 +191,10 @@ class EKF(ExtendedKalmanFilter):  # Renamed to avoid confusion with ESKF
                residual: Any = np.subtract) -> None:
         def HJacobian_fn(x: np.ndarray, *args: Any) -> np.ndarray:
             return self.H_jacobian(x)
+
         def Hx_fn(x: np.ndarray, *args: Any) -> np.ndarray:
             return self.h(x)
+
         if R is None:
             R = self.R
         super().update(z, R=R, HJacobian=HJacobian_fn, Hx=Hx_fn, args=args, hx_args=hx_args, residual=residual)
@@ -171,7 +202,6 @@ class EKF(ExtendedKalmanFilter):  # Renamed to avoid confusion with ESKF
         if q_norm > 0:
             self.x[6:10] /= q_norm
 
-    # ... (get_position, get_velocity, get_quaternion, get_rotation_matrix, get_euler_angles - same as before) ...
     def get_position(self) -> np.ndarray:
         return self.x[0:3]
 
@@ -191,86 +221,119 @@ class EKF(ExtendedKalmanFilter):  # Renamed to avoid confusion with ESKF
         r = Rotation.from_quat(quat=[q[1], q[2], q[3], q[0]])
         return r.as_euler('xyz')
 
+    def get_linear_acceleration(self, corrected_accel_body: np.ndarray) -> np.ndarray:
+        """
+        Compute linear acceleration in world frame (gravity removed).
+
+        Args:
+            corrected_accel_body: Accelerometer data after bias correction in body frame (in g units)
+
+        Returns:
+            Linear acceleration in world frame [ax, ay, az] (in g units)
+        """
+        q = self.get_quaternion()
+        rotation = Rotation.from_quat([q[1], q[2], q[3], q[0]])  # [x, y, z, w] for SciPy
+
+        # Transform accelerometer readings from body to world frame (still in g units)
+        accel_world = rotation.apply(corrected_accel_body)
+
+        # Remove gravity effect (subtract g vector in g units)
+        linear_accel = accel_world - self.g
+
+        return linear_accel
+
 
 # --- Error State Kalman Filter (ESKF) ---
 class ESKF(KalmanFilter):
     """
     Error State Kalman Filter for IMU sensor fusion.
+    Modified to work with acceleration in g units (1g = 9.81 m/s²)
     """
+
     def __init__(self, dt: float, process_noise: float = 1e-5, measurement_noise: float = 0.1,
                  gyro_noise: float = 0.01, gyro_bias_process_noise: float = 1e-8,
                  accel_noise: float = 0.1, accel_bias_process_noise: float = 1e-7):
-        super().__init__(dim_x=15, dim_z=6) # 15 error states, 6 measurements
+        super().__init__(dim_x=15, dim_z=6)  # 15 error states, 6 measurements
 
         # State Vector: Error states (delta_orientation, delta_velocity, delta_position, gyro_bias, accel_bias)
         # x = [d_theta_x, d_theta_y, d_theta_z,  dv_x, dv_y, dv_z,  dp_x, dp_y, dp_z,  bg_x, bg_y, bg_z,  ba_x, ba_y, ba_z]
 
         self.dt = dt
-        self.gravity_mag = 9.81
-        self.g_vec = np.array([0, 0, self.gravity_mag])
+        self.gravity_mag = 1.0  # Now in g units (1.0g)
+        self.g_vec = np.array([0, 0, self.gravity_mag])  # g vector in g units
+        self.g_mps2 = 9.81  # Conversion factor from g to m/s²
 
         # Nominal States (these are estimated outside the ESKF, using direct integration)
         self.nominal_position = np.zeros(3)
         self.nominal_velocity = np.zeros(3)
-        self.nominal_quaternion = np.array([1.0, 0.0, 0.0, 0.0]) # [w, x, y, z]
+        self.nominal_quaternion = np.array([1.0, 0.0, 0.0, 0.0])  # [w, x, y, z]
         self.gyro_bias = np.zeros(3)
         self.accel_bias = np.zeros(3)
 
         # Initial Error State and Covariance (initially zero error and small covariance)
-        self.x = np.zeros(15) # Error state initialized to zero
+        self.x = np.zeros(15)  # Error state initialized to zero
         self.P = np.eye(15) * 0.01  # Small initial covariance for error states
 
         # Process Noise Covariance Matrix Q (Error state propagation noise)
         self.Q = np.diag([
-            process_noise, process_noise, process_noise, # Orientation error
-            process_noise, process_noise, process_noise, # Velocity error
-            process_noise, process_noise, process_noise, # Position error
-            gyro_bias_process_noise, gyro_bias_process_noise, gyro_bias_process_noise, # Gyro bias
-            accel_bias_process_noise, accel_bias_process_noise, accel_bias_process_noise # Accel bias
+            process_noise, process_noise, process_noise,  # Orientation error
+            process_noise, process_noise, process_noise,  # Velocity error
+            process_noise, process_noise, process_noise,  # Position error
+            gyro_bias_process_noise, gyro_bias_process_noise, gyro_bias_process_noise,  # Gyro bias
+            accel_bias_process_noise, accel_bias_process_noise, accel_bias_process_noise  # Accel bias
         ])
 
         # Measurement Noise Covariance Matrix R
         self.R = np.diag([
-            accel_noise, accel_noise, accel_noise, # Accelerometer noise
-            gyro_noise, gyro_noise, gyro_noise      # Gyro noise
+            accel_noise, accel_noise, accel_noise,  # Accelerometer noise
+            gyro_noise, gyro_noise, gyro_noise  # Gyro noise
         ])
 
         # Measurement Matrix H (Observation model Jacobian - relates error state to measurement)
         self.H = np.zeros((6, 15))
-        self.H[0:3, 6:9] = np.eye(3)      # Position error affects accel measurement (indirectly through gravity)
-        self.H[0:3, 12:15] = -np.eye(3)    # Accel bias directly affects accel measurement
-        self.H[3:6, 9:12] = -np.eye(3)     # Gyro bias directly affects gyro measurement
-        self.H[3:6, 0:3] = -np.eye(3)       # Orientation error affects gyro measurement
+        self.H[0:3, 6:9] = np.eye(3)  # Position error affects accel measurement (indirectly through gravity)
+        self.H[0:3, 12:15] = -np.eye(3)  # Accel bias directly affects accel measurement
+        self.H[3:6, 9:12] = -np.eye(3)  # Gyro bias directly affects gyro measurement
+        self.H[3:6, 0:3] = -np.eye(3)  # Orientation error affects gyro measurement
 
         # State Transition Matrix F (Jacobian of error state propagation) - Will be computed in predict step
 
     def set_gravity_magnitude(self, gravity_mag: float) -> None:
+        """Set gravity magnitude in g units (1.0 = 1g = 9.81 m/s²)"""
         self.gravity_mag = gravity_mag
         self.g_vec = np.array([0, 0, self.gravity_mag])
+
+    def set_g_conversion_factor(self, g_mps2: float) -> None:
+        """Set the conversion factor from g to m/s² (default is 9.81)"""
+        self.g_mps2 = g_mps2
 
     def set_biases(self, accel_bias: Sequence[float], gyro_bias: Sequence[float]) -> None:
         self.accel_bias = np.array(accel_bias)
         self.gyro_bias = np.array(gyro_bias)
-        self.nominal_quaternion = np.array([1.0, 0.0, 0.0, 0.0]) # Reset orientation on bias set
+        self.nominal_quaternion = np.array([1.0, 0.0, 0.0, 0.0])  # Reset orientation on bias set
         self.nominal_velocity = np.zeros(3)
         self.nominal_position = np.zeros(3)
 
     def set_initial_orientation(self, quaternion: Sequence[float]) -> None:
         self.nominal_quaternion = quaternion
 
-    def predict(self, u: Optional[Sequence[float]] = None, dt: Optional[float] = None, Q: Optional[np.ndarray] = None, **kwargs: Any) -> None:
+    def predict(self, u: Optional[Sequence[float]] = None, dt: Optional[float] = None, Q: Optional[np.ndarray] = None,
+                **kwargs: Any) -> None:
         if dt is None:
             dt = self.dt
         if u is None or len(u) < 6:
             accel_meas = np.zeros(3)
             gyro_meas = np.zeros(3)
         else:
-            accel_meas = np.array(u[0:3])
+            accel_meas = np.array(u[0:3])  # Acceleration in g units
             gyro_meas = np.array(u[3:6])
 
         # 1. Nominal State Propagation (using measurements and previous nominal states)
-        omega_nominal_body = gyro_meas - self.gyro_bias # Correct gyro measurements for bias
-        accel_nominal_body = accel_meas - self.accel_bias # Correct accel measurements for bias
+        omega_nominal_body = gyro_meas - self.gyro_bias  # Correct gyro measurements for bias
+        accel_nominal_body = accel_meas - self.accel_bias  # Correct accel measurements for bias (in g units)
+
+        # Convert acceleration from g to m/s² for physics calculations
+        accel_nominal_body_mps2 = accel_nominal_body * self.g_mps2
 
         # Quaternion Propagation (RK4 for nominal quaternion)
         omega_vec = np.array([0.0, omega_nominal_body[0], omega_nominal_body[1], omega_nominal_body[2]])
@@ -278,17 +341,24 @@ class ESKF(KalmanFilter):
 
         # Velocity Propagation (in world frame)
         quat_nominal_conj = self.conjugate_quaternion(self.nominal_quaternion)
-        rotation_body_to_world = Rotation.from_quat([self.nominal_quaternion[1], self.nominal_quaternion[2], self.nominal_quaternion[3], self.nominal_quaternion[0]]).as_matrix() # [x,y,z,w] for scipy
-        accel_world = rotation_body_to_world @ accel_nominal_body + self.g_vec
-        self.nominal_velocity += accel_world * dt
+        rotation_body_to_world = Rotation.from_quat(
+            [self.nominal_quaternion[1], self.nominal_quaternion[2], self.nominal_quaternion[3],
+             self.nominal_quaternion[0]]).as_matrix()  # [x,y,z,w] for scipy
+
+        # Convert gravity from g to m/s² for physics calculations
+        g_vec_mps2 = self.g_vec * self.g_mps2
+
+        # Apply rotation and add gravity (in m/s²)
+        accel_world_mps2 = rotation_body_to_world @ accel_nominal_body_mps2 + g_vec_mps2
+        self.nominal_velocity += accel_world_mps2 * dt
 
         # Position Propagation (in world frame)
         self.nominal_position += self.nominal_velocity * dt
 
         # 2. Error State Propagation (Error states propagate according to linearized dynamics)
         # Compute State Transition Matrix F (Jacobian of error state propagation)
-        F = self._compute_F_jacobian(omega_nominal_body, accel_nominal_body, rotation_body_to_world, dt)
-        self.F = F # Store for update step (though filterpy might not need this stored)
+        F = self._compute_F_jacobian(omega_nominal_body, accel_nominal_body_mps2, rotation_body_to_world, dt)
+        self.F = F  # Store for update step (though filterpy might not need this stored)
 
         # Propagate error covariance matrix
         if Q is None:
@@ -296,13 +366,13 @@ class ESKF(KalmanFilter):
         self.P = F @ self.P @ F.T + Q
 
         # Error state x propagation is assumed to be x = F @ x, but since x is initialized to zero and no control input on error state, x remains zero in predict.
-        self.x = F @ self.x # Technically should be here for full ESKF, but as x is error, and we reset in update, and no error input, it often stays zero.
+        self.x = F @ self.x  # Technically should be here for full ESKF, but as x is error, and we reset in update, and no error input, it often stays zero.
 
-    def _compute_F_jacobian(self, omega_nominal_body, accel_nominal_body, rotation_body_to_world, dt):
+    def _compute_F_jacobian(self, omega_nominal_body, accel_nominal_body_mps2, rotation_body_to_world, dt):
         """Computes the state transition Jacobian F for the ESKF."""
         F = np.eye(15)
         # Orientation Error to Velocity Error Jacobian (Eq 7.77, 7.80 in Solà)
-        F[3:6, 0:3] = -skew_symmetric_matrix(rotation_body_to_world @ accel_nominal_body) * dt
+        F[3:6, 0:3] = -skew_symmetric_matrix(rotation_body_to_world @ accel_nominal_body_mps2) * dt
         # Velocity Error to Position Error Jacobian
         F[6:9, 3:6] = np.eye(3) * dt
         # Orientation Error Propagation (Eq 7.79 in Solà, linearized quaternion kinematics)
@@ -321,7 +391,7 @@ class ESKF(KalmanFilter):
             H = self.H
 
         # 1. Innovation/Measurement residual
-        y = z - self.h() # Measurement residual is measurement minus predicted measurement (h() in ESKF is error-state predicted measurement)
+        y = z - self.h()  # Measurement residual is measurement minus predicted measurement (h() in ESKF is error-state predicted measurement)
 
         # 2. Kalman Gain Calculation
         S = H @ self.P @ H.T + R
@@ -335,9 +405,11 @@ class ESKF(KalmanFilter):
 
         # 5. Correct Nominal states using error states and reset error states to zero
         # Orientation correction (quaternion composition - Eq 7.104, 7.105 Solà)
-        delta_orientation_quat = self.delta_quaternion_from_rotation_vector(self.x[0:3]) # Convert rotation vector error to quaternion
-        self.nominal_quaternion = quaternion_multiply_np(self.nominal_quaternion, delta_orientation_quat) # Apply correction to nominal quaternion
-        self.nominal_quaternion /= np.linalg.norm(self.nominal_quaternion) # Normalize
+        delta_orientation_quat = self.delta_quaternion_from_rotation_vector(
+            self.x[0:3])  # Convert rotation vector error to quaternion
+        self.nominal_quaternion = quaternion_multiply_np(self.nominal_quaternion,
+                                                         delta_orientation_quat)  # Apply correction to nominal quaternion
+        self.nominal_quaternion /= np.linalg.norm(self.nominal_quaternion)  # Normalize
 
         # Velocity and Position correction (additive error)
         self.nominal_velocity += self.x[3:6]
@@ -349,7 +421,6 @@ class ESKF(KalmanFilter):
 
         # Reset error states to zero after correction (important for ESKF)
         self.x = np.zeros(15)
-
 
     def h(self) -> np.ndarray:
         """Measurement function for ESKF - predicts measurements based on error state (deviation from nominal).
@@ -367,17 +438,17 @@ class ESKF(KalmanFilter):
         Here, we simplify and assume predicted measurement is just zero, and H matrix captures the sensitivity.
         So, h() returns zeros, and the H matrix is used in update step to relate error state to measurement residual.
         """
-        return np.zeros(6) # Predicted measurement error is assumed zero when error state is zero.
+        return np.zeros(6)  # Predicted measurement error is assumed zero when error state is zero.
 
     def delta_quaternion_from_rotation_vector(self, delta_theta: np.ndarray) -> np.ndarray:
         """Converts a rotation vector (error orientation) to a delta quaternion."""
         norm_delta_theta = np.linalg.norm(delta_theta)
         if norm_delta_theta < 1e-8:
-            delta_quat = np.array([1.0, 0.0, 0.0, 0.0]) # Identity quaternion
+            delta_quat = np.array([1.0, 0.0, 0.0, 0.0])  # Identity quaternion
         else:
             axis = delta_theta / norm_delta_theta
             angle = norm_delta_theta
-            delta_quat = np.concatenate(([np.cos(angle/2.0)], axis * np.sin(angle/2.0))) # [w, x, y, z]
+            delta_quat = np.concatenate(([np.cos(angle / 2.0)], axis * np.sin(angle / 2.0)))  # [w, x, y, z]
         return delta_quat
 
     def conjugate_quaternion(self, q: np.ndarray) -> np.ndarray:
@@ -400,13 +471,34 @@ class ESKF(KalmanFilter):
         return self.accel_bias
 
     def get_rotation_matrix(self) -> np.ndarray:
-        r = Rotation.from_quat([self.nominal_quaternion[1], self.nominal_quaternion[2], self.nominal_quaternion[3], self.nominal_quaternion[0]]) # [x,y,z,w] for scipy
+        r = Rotation.from_quat([self.nominal_quaternion[1], self.nominal_quaternion[2], self.nominal_quaternion[3],
+                                self.nominal_quaternion[0]])  # [x,y,z,w] for scipy
         return r.as_matrix()
 
     def get_euler_angles(self) -> np.ndarray:
-        r = Rotation.from_quat([self.nominal_quaternion[1], self.nominal_quaternion[2], self.nominal_quaternion[3], self.nominal_quaternion[0]]) # [x,y,z,w] for scipy
+        r = Rotation.from_quat([self.nominal_quaternion[1], self.nominal_quaternion[2], self.nominal_quaternion[3],
+                                self.nominal_quaternion[0]])  # [x,y,z,w] for scipy
         return r.as_euler('xyz')
 
+    def get_linear_acceleration(self, corrected_accel_body: np.ndarray) -> np.ndarray:
+        """
+        Compute linear acceleration in world frame (gravity removed).
+
+        Args:
+            corrected_accel_body: Accelerometer data after bias correction in body frame (in g units)
+
+        Returns:
+            Linear acceleration in world frame [ax, ay, az] (in g units)
+        """
+        rotation = self.get_rotation_matrix()
+
+        # Transform accelerometer readings from body to world frame (still in g units)
+        accel_world = rotation @ corrected_accel_body
+
+        # Remove gravity effect (subtract g vector in g units)
+        linear_accel = accel_world - self.g_vec
+
+        return linear_accel
 
 def skew_symmetric_matrix(v):
     """Returns the skew-symmetric matrix of a vector."""

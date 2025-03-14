@@ -51,23 +51,17 @@ def live_ekf_test():
     time.sleep(2)
 
     calib_iterations = 100
-    _, _, accel_bias, gyro_bias = get_calibration_data(ser, calib_iterations)
-    # Convert gyro bias from °/s to rad/s for consistency.
+    accel_data, gyro_data, accel_bias, gyro_bias = get_calibration_data(ser, calib_iterations)
     gyro_bias = np.deg2rad(gyro_bias)
     print("Calibration complete.")
     print("Accel Bias (g):", accel_bias)
     print("Gyro Bias (rad/s):", gyro_bias)
 
     dt_est = 0.007
-    ekf = EKF(dt=dt_est, process_noise=0.01, accel_noise=0.2, gyro_noise=0.05)
-    ekf.set_gravity_magnitude(9.81)
-
-    # Initialize direct integration method with identity rotation
-    raw_rotation = Rotation.identity()
+    ekf = EKF(dt=dt_est, process_noise=0.01, accel_noise=0.2, gyro_noise=0.05, initial_gyro_bias=gyro_bias)
+    ekf.set_initial_orientation(np.mean(accel_data, axis=0) - accel_bias)
 
     count = 0
-    sum_sq_euler_diff = np.zeros(3)
-    sum_sq_lin_acc_diff = np.zeros(3)
 
     print("Starting live sensor data collection. Press Ctrl+C to stop.")
     prev_time = time.time()
@@ -91,7 +85,7 @@ def live_ekf_test():
 
                     # Gyroscope: sensor outputs in °/s -> convert to rad/s.
                     raw_gyro = np.array([x_gyro, y_gyro, z_gyro])
-                    gyro_meas_rad = np.deg2rad(raw_gyro) - gyro_bias
+                    gyro_rad = np.deg2rad(raw_gyro)
 
                     current_time = time.time()
                     dt = current_time - prev_time
@@ -100,45 +94,20 @@ def live_ekf_test():
                     prev_time = current_time
 
                     # --- EKF Pipeline ---
-                    ekf.update(accel_meas_ms2, gyro_meas_rad, dt)
-                    ekf_euler = ekf.get_euler_angles()  # radians
-                    ekf_lin_acc = ekf.get_linear_accel(accel_meas_ms2)
+                    ekf.update(accel_meas_ms2, gyro_rad, dt)
+                    ekf_euler = ekf.get_euler()  # radians
+                    ekf_lin_acc = ekf.get_linear_acceleration(accel_meas_ms2)
 
-                    # --- Direct Integration Pipeline ---
-                    delta_rot = Rotation.from_rotvec(gyro_meas_rad * dt)
-                    raw_rotation = raw_rotation * delta_rot
-                    raw_euler = raw_rotation.as_euler('xyz')
-                    R_raw = raw_rotation.as_matrix()
-                    gravity_sensor = R_raw.T @ np.array([0, 0, 9.81])
-                    raw_lin_acc = accel_meas_ms2 - gravity_sensor
-
-                    euler_diff = ekf_euler - raw_euler
-                    lin_acc_diff = ekf_lin_acc - raw_lin_acc
-
-                    sum_sq_euler_diff += euler_diff ** 2
-                    sum_sq_lin_acc_diff += lin_acc_diff ** 2
                     count += 1
 
-                    if count % 1000 == 0:
-                        rms_euler_diff = np.sqrt(sum_sq_euler_diff / count)
-                        rms_lin_acc_diff = np.sqrt(sum_sq_lin_acc_diff / count)
-                        rms_euler_diff_deg = np.degrees(rms_euler_diff)
-                        print(f"\nSamples Processed: {count}")
-                        print(f"RMS Euler Diff (deg): Roll: {rms_euler_diff_deg[0]:.2f}, "
-                              f"Pitch: {rms_euler_diff_deg[1]:.2f}, Yaw: {rms_euler_diff_deg[2]:.2f}")
-                        print(f"RMS Linear Acc Diff (m/s²): X: {rms_lin_acc_diff[0]:.2f}, "
-                              f"Y: {rms_lin_acc_diff[1]:.2f}, Z: {rms_lin_acc_diff[2]:.2f}")
-
-                    if count % 1000 == 0:
+                    if count % 100 == 0:
                         print("\n--- DEBUG DATA ---")
                         print(f"Raw Sensor Data: Accel: [{x_accel:.4f}, {y_accel:.4f}, {z_accel:.4f}], "
                               f"Gyro (°/s): [{x_gyro:.4f}, {y_gyro:.4f}, {z_gyro:.4f}]")
-                        print(f"Bias Corrected Data: Accel (g): {accel_meas}, Gyro (rad/s): {gyro_meas_rad}")
+                        print(f"Bias Corrected Data: Accel (g): {accel_meas}, Gyro (rad/s): {gyro_rad}")
                         print(f"dt: {dt:.4f}")
                         print(f"EKF Euler (deg): {np.degrees(ekf_euler)}")
-                        print(f"Raw Euler (deg): {np.degrees(raw_euler)}")
                         print(f"EKF Lin Acc (m/s²): {ekf_lin_acc}")
-                        print(f"Raw Lin Acc (m/s²): {raw_lin_acc}")
                         print("--- END DEBUG DATA ---")
 
     except KeyboardInterrupt:

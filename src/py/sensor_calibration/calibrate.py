@@ -4,60 +4,37 @@ from typing import List, Tuple, Any
 from numpy import ndarray, dtype, float64, complex128, floating, complexfloating, inexact, number, timedelta64
 from scipy.spatial.transform import Rotation
 
-
-class VectorMeasurement:
-    def __init__(self, a: float, b: float, c: float):
-        self.vec = np.array([a, b, c], dtype=np.float64)
-
-
-def calculate_avg_accel(measurements: List[VectorMeasurement], trim_percentage: float = 0.1) -> tuple[ndarray[
-    tuple[int], dtype[Any]], float] | tuple[float | ndarray[tuple[int, ...], dtype[float64]] | ndarray[
-    tuple[int, ...], dtype[complex128]] | ndarray[tuple[int, ...], dtype[floating]] | ndarray[
-                                                tuple[int, ...], dtype[complexfloating]] | ndarray[
-                                                tuple[int, ...], dtype[inexact]] | ndarray[
-                                                tuple[int, ...], dtype[number]] | ndarray[
-                                                tuple[int, ...], dtype[timedelta64]] | ndarray[
-                                                tuple[int], dtype[Any]] | Any, floating[Any]]:
+def calculate_avg_accel(measurements: List, trim_percentage: float = 0.1):
     """
     Compute the average raw acceleration vector and its magnitude using trimmed mean.
     """
     if not 0.0 <= trim_percentage <= 0.5:
         raise ValueError("trim_percentage must be between 0.0 and 0.5")
 
-    num_measurements = len(measurements)
+    # Convert measurements to numpy array
+    vectors = np.array([m for m in measurements])
+    num_measurements = vectors.shape[0]
+
     if num_measurements == 0:
         return np.zeros(3, dtype=np.float64), 0.0
 
-    vectors = np.array([m.vec for m in measurements])
+    # Create trimmed vectors by component
+    trimmed_x = np.sort(vectors[:, 0])[
+                int(num_measurements * trim_percentage):int(num_measurements * (1 - trim_percentage))]
+    trimmed_y = np.sort(vectors[:, 1])[
+                int(num_measurements * trim_percentage):int(num_measurements * (1 - trim_percentage))]
+    trimmed_z = np.sort(vectors[:, 2])[
+                int(num_measurements * trim_percentage):int(num_measurements * (1 - trim_percentage))]
 
-    trimmed_vectors_list = [] # Changed from pre-allocated numpy array to list
-    for i in range(3): # Iterate over x, y, z components
-        component_values = vectors[:, i]
-        sorted_indices = np.argsort(component_values)
-        trim_amount = int(num_measurements * trim_percentage)
-        trimmed_indices = sorted_indices[trim_amount:num_measurements - trim_amount]
-        trimmed_vectors_list.append(vectors[trimmed_indices, i]) # Append trimmed component values
-
-    # Stack the trimmed components to form trimmed_vectors
-    if trimmed_vectors_list: # Check if trimmed_vectors_list is not empty
-        trimmed_vectors = np.column_stack(trimmed_vectors_list) # Stack columns
-    else:
-        return np.zeros(3, dtype=np.float64), 0.0 # Return zero vector and magnitude if no data after trimming
-
-
-    sum_vec = np.sum(trimmed_vectors, axis=0)
-    iterations = trimmed_vectors.shape[0] # Number of rows in trimmed_vectors is the count of trimmed measurements
-
-    if iterations > 0:
-        avg_vec = sum_vec / iterations
-    else:
-        avg_vec = np.zeros(3, dtype=np.float64)
+    # Calculate means
+    avg_vec = np.array([np.mean(trimmed_x), np.mean(trimmed_y), np.mean(trimmed_z)])
 
     gravity_mag = np.linalg.norm(avg_vec)
-    if gravity_mag != 0:
+    if gravity_mag > 0:
         g_normalized = avg_vec / gravity_mag
     else:
-        g_normalized = avg_vec
+        g_normalized = np.array([0, 0, 1])  # Default to world up if no signal
+
     return g_normalized, gravity_mag
 
 
@@ -86,5 +63,5 @@ def calibrate_sensors(measurements):
     """
     g_normalized, gravity_mag = calculate_avg_accel(measurements)
     R_matrix = compute_rotation_matrix(g_normalized)
-    R_calib = Rotation.from_matrix(cls_1=None, matrix=R_matrix)
+    R_calib = Rotation.from_matrix(matrix=R_matrix)
     return R_calib, gravity_mag # Return the Rotation object

@@ -6,4 +6,7 @@ record_data = {
     "fully_oriented": False
 }
 
-compute_velocity = False
+config = {
+    "record": False,
+    "record_data": record_data,
+}

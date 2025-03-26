@@ -64,4 +64,4 @@ def calibrate_sensors(measurements):
     g_normalized, gravity_mag = calculate_avg_accel(measurements)
     R_matrix = compute_rotation_matrix(g_normalized)
     R_calib = Rotation.from_matrix(matrix=R_matrix)
-    return R_calib, gravity_mag # Return the Rotation object
+    return R_calib, gravity_mag

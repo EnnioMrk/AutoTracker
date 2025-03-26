@@ -1,12 +1,7 @@
-record = True
-
-record_data = {
-    "z_calibrated": False,
-    "linear_accel": False,
-    "fully_oriented": False
-}
-
-config = {
-    "record": False,
-    "record_data": record_data,
-}
+class MainConfig:
+    def __init__(self):
+        self.record = False
+        self.record_data = {
+            "calibrated": False
+        }
+        self.process_data = False

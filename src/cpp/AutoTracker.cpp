@@ -33,9 +33,6 @@ void setup() {
   // Initialize I2C
   Wire.begin(SDA_PIN, SCL_PIN);
 
-  // Initialize the MPU-6500
-  //Serial.println("Initializing MPU-6500...");
-
   // Initialize calibration data
   loadCalibration();
 
@@ -54,6 +51,7 @@ void loop() {
   IMU.getAccel(&accelData);
   IMU.getGyro(&gyroData);
 
+  // Print sensor data
   Serial.print(accelData.accelX, 10);
   Serial.print("\t");
   Serial.print(accelData.accelY, 10);
@@ -64,7 +62,17 @@ void loop() {
   Serial.print("\t");
   Serial.print(gyroData.gyroY, 10);
   Serial.print("\t");
-  Serial.println(gyroData.gyroZ, 10);
+  Serial.print(gyroData.gyroZ, 10);
+  Serial.print("\t");
+
+  // Calculate dt in seconds
+  unsigned long currentTime = micros();
+  unsigned long dtMicros = currentTime - lastTime;
+  lastTime = currentTime;
+  float dt = dtMicros / 1000000.0;
+
+  // Output dt value
+  Serial.println(dt, 10);
 }
 
 // Function to load calibration data

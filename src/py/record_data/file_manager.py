@@ -1,20 +1,23 @@
 import csv
 import os
 
+import keyboard
+
+from src.py.configs.config import LABELS
+
 
 class FileManager:
     data_path = os.path.abspath("../data")
     paths = {
         "raw": os.path.join(data_path, "raw"),
-        "filtered_accel": os.path.join(data_path, "filtered_accel"),
         "ekf": os.path.join(data_path, "ekf"),
         "eskf": os.path.join(data_path, "eskf")
     }
 
     def __init__(self, ekf=True, linear_accel=True, eskf=True):
+        self.recording = None
         self._flags = {
             "raw": True,
-            "filtered_accel": linear_accel,
             "ekf": ekf,
             "eskf": eskf # Added eskf flag
         }
@@ -84,6 +87,25 @@ class FileManager:
         self._files.clear()
         self._csv_writers.clear()
         self._files_closed = True  # Mark files as closed
+
+    def detect_keypress(self):
+        """Detects key presses and updates the active label."""
+        if keyboard.is_pressed("space"):
+            if self.recording:
+                self.finish_recording()
+                self.recording = False
+                print("Recording stopped")
+            else:
+                self.setup_files()
+                self.recording = True
+                print("Recording started")
+            keyboard.wait("space")
+
+        for key in LABELS:
+            if keyboard.is_pressed(key):
+                active_label = LABELS[key]
+                print(f"Active label: {active_label}")
+                self.label = active_label
 
     def __del__(self):
         """Ensures all files are closed when the object is destroyed."""

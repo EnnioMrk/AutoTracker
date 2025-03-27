@@ -1,6 +1,6 @@
 class MainConfig:
     def __init__(self):
-        self.record = False
+        self.record = True
         self.record_data = {
             "calibrated": False
         }

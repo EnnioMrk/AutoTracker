@@ -3,8 +3,6 @@ from typing import List, Any
 import numpy as np
 import pandas as pd
 from numpy import ndarray, dtype
-from numpy._core.fromnumeric import _SCT
-from numpy.lib._arraysetops_impl import _SCT
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report
 from sklearn.model_selection import train_test_split
@@ -163,7 +161,7 @@ class StreetTextureClassifier:
         self.is_trained = True
         return self
 
-    def predict(self, sensor_data: pd.DataFrame) -> tuple[Any, _SCT | Any]:
+    def predict(self, sensor_data: pd.DataFrame):
         """
         Predict street texture for new sensor data and return the predicted label with confidence.
 

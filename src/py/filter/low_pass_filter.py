@@ -1,7 +1,5 @@
 class LowPassFilter:
-    def __init__(self, alpha=0.5):
-        # TODO - Compute \frac{1}{1+(10\cdot\sigma)} to determine alpha where \sigma is the
-        # standard deviation of gyro readings when stationary.
+    def __init__(self, alpha=0.2):
         """
         Initialize the filter with a smoothing factor.
         alpha: Smoothing factor (0 < alpha <= 1). Lower values result in smoother output.

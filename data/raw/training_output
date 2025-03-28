@@ -1,0 +1,189 @@
+C:\Users\benne\PycharmProjects\AutoTracker\.venv\Scripts\python.exe C:\Users\benne\PycharmProjects\AutoTracker\src\py\ml_model\model.py
+Project Root (estimated): C:\Users\benne\PycharmProjects\AutoTracker
+Data Directory: C:\Users\benne\PycharmProjects\AutoTracker\data\raw
+
+Checking data files:
+
+Found 15 unique valid files for LOFO CV.
+
+--- Preparing Intervals from Files ---
+--- Total intervals prepared from all files: 1883 ---
+Total interval distribution by class: {'stadt': 588, 'landstraße': 555, 'autobahn': 582, 'dorf': 158}
+
+--- Starting Leave-One-File-Out Cross-Validation (15 folds) ---
+Using feature type: rotated_gravity
+
+[Fold 1/15] Holding out: data_autobahn.csv
+  True label for held-out file: 'autobahn'
+  Training intervals: 1601, Test intervals: 282
+	  Interval votes: {'landstraße': 86, 'autobahn': 196}
+  --> Fold Prediction (Majority): 'autobahn' (Confidence: 0.6955)
+  Fold completed in 63.67 seconds.
+
+[Fold 2/15] Holding out: data_autobahn_1.csv
+  True label for held-out file: 'autobahn'
+  Training intervals: 1583, Test intervals: 300
+  Interval votes: {'landstraße': 113, 'autobahn': 183, 'dorf': 4}
+  --> Fold Prediction (Majority): 'autobahn' (Confidence: 0.6536)
+  Fold completed in 63.19 seconds.
+
+[Fold 3/15] Holding out: data_dorf.csv
+  True label for held-out file: 'dorf'
+  Training intervals: 1796, Test intervals: 87
+  Interval votes: {'landstraße': 53, 'autobahn': 12, 'dorf': 14, 'stadt': 8}
+  --> Fold Prediction (Majority): 'landstraße' (Confidence: 0.6087)
+  Fold completed in 56.04 seconds.
+
+[Fold 4/15] Holding out: data_dorf_1.csv
+  True label for held-out file: 'dorf'
+  Training intervals: 1812, Test intervals: 71
+  Interval votes: {'dorf': 15, 'autobahn': 11, 'landstraße': 43, 'stadt': 2}
+  --> Fold Prediction (Majority): 'landstraße' (Confidence: 0.5047)
+  Fold completed in 58.74 seconds.
+
+[Fold 5/15] Holding out: data_landstraße.csv
+  True label for held-out file: 'landstraße'
+  Training intervals: 1799, Test intervals: 84
+  Interval votes: {'stadt': 84}
+  --> Fold Prediction (Majority): 'stadt' (Confidence: 0.9263)
+  Fold completed in 66.84 seconds.
+
+[Fold 6/15] Holding out: data_landstraße_1.csv
+  True label for held-out file: 'landstraße'
+  Training intervals: 1756, Test intervals: 127
+  Interval votes: {'landstraße': 97, 'autobahn': 27, 'dorf': 3}
+  --> Fold Prediction (Majority): 'landstraße' (Confidence: 0.6558)
+  Fold completed in 60.87 seconds.
+
+[Fold 7/15] Holding out: data_landstraße_2.csv
+  True label for held-out file: 'landstraße'
+  Training intervals: 1783, Test intervals: 100
+  Interval votes: {'landstraße': 36, 'autobahn': 48, 'dorf': 16}
+  --> Fold Prediction (Majority): 'autobahn' (Confidence: 0.6819)
+  Fold completed in 62.31 seconds.
+
+[Fold 8/15] Holding out: data_landstraße_3.csv
+  True label for held-out file: 'landstraße'
+  Training intervals: 1861, Test intervals: 22
+  Interval votes: {'landstraße': 20, 'autobahn': 2}
+  --> Fold Prediction (Majority): 'landstraße' (Confidence: 0.6210)
+  Fold completed in 59.02 seconds.
+
+[Fold 9/15] Holding out: data_landstraße_4.csv
+  True label for held-out file: 'landstraße'
+  Training intervals: 1785, Test intervals: 98
+  Interval votes: {'landstraße': 41, 'dorf': 5, 'autobahn': 49, 'stadt': 3}
+  --> Fold Prediction (Majority): 'autobahn' (Confidence: 0.6359)
+  Fold completed in 59.52 seconds.
+
+[Fold 10/15] Holding out: data_landstraße_5.csv
+  True label for held-out file: 'landstraße'
+  Training intervals: 1759, Test intervals: 124
+  Interval votes: {'landstraße': 96, 'autobahn': 25, 'dorf': 3}
+  --> Fold Prediction (Majority): 'landstraße' (Confidence: 0.6461)
+  Fold completed in 60.12 seconds.
+
+[Fold 11/15] Holding out: data_stadt.csv
+  True label for held-out file: 'stadt'
+  Training intervals: 1731, Test intervals: 152
+  Interval votes: {'stadt': 140, 'landstraße': 8, 'dorf': 4}
+  --> Fold Prediction (Majority): 'stadt' (Confidence: 0.9059)
+  Fold completed in 59.42 seconds.
+
+[Fold 12/15] Holding out: data_stadt_1.csv
+  True label for held-out file: 'stadt'
+  Training intervals: 1753, Test intervals: 130
+  Interval votes: {'stadt': 128, 'landstraße': 2}
+  --> Fold Prediction (Majority): 'stadt' (Confidence: 0.8945)
+  Fold completed in 59.79 seconds.
+
+[Fold 13/15] Holding out: data_stadt_2.csv
+  True label for held-out file: 'stadt'
+  Training intervals: 1796, Test intervals: 87
+  Interval votes: {'stadt': 87}
+  --> Fold Prediction (Majority): 'stadt' (Confidence: 0.9183)
+  Fold completed in 59.96 seconds.
+
+[Fold 14/15] Holding out: data_stadt_3.csv
+  True label for held-out file: 'stadt'
+  Training intervals: 1760, Test intervals: 123
+  Interval votes: {'stadt': 119, 'landstraße': 4}
+  --> Fold Prediction (Majority): 'stadt' (Confidence: 0.7530)
+  Fold completed in 59.92 seconds.
+
+[Fold 15/15] Holding out: data_stadt_4.csv
+  True label for held-out file: 'stadt'
+  Training intervals: 1787, Test intervals: 96
+  Interval votes: {'landstraße': 22, 'stadt': 74}
+  --> Fold Prediction (Majority): 'stadt' (Confidence: 0.7366)
+  Fold completed in 58.60 seconds.
+
+--- LOFO Cross-Validation Completed in 908.02 seconds ---
+
+--- Overall LOFO CV Results ---
+Total Files Evaluated: 15/15
+Correctly Classified Files: 10
+Overall Accuracy (File Level): 0.6667
+
+--- Results per Fold (File) ---
+  File: data_autobahn.csv         | True: autobahn     | Pred: autobahn           | Conf: 0.696 | Status: Correct
+  File: data_autobahn_1.csv       | True: autobahn     | Pred: autobahn           | Conf: 0.654 | Status: Correct
+  File: data_dorf.csv             | True: dorf         | Pred: landstraße         | Conf: 0.609 | Status: Incorrect
+  File: data_dorf_1.csv           | True: dorf         | Pred: landstraße         | Conf: 0.505 | Status: Incorrect
+  File: data_landstraße.csv       | True: landstraße   | Pred: stadt              | Conf: 0.926 | Status: Incorrect
+  File: data_landstraße_1.csv     | True: landstraße   | Pred: landstraße         | Conf: 0.656 | Status: Correct
+  File: data_landstraße_2.csv     | True: landstraße   | Pred: autobahn           | Conf: 0.682 | Status: Incorrect
+  File: data_landstraße_3.csv     | True: landstraße   | Pred: landstraße         | Conf: 0.621 | Status: Correct
+  File: data_landstraße_4.csv     | True: landstraße   | Pred: autobahn           | Conf: 0.636 | Status: Incorrect
+  File: data_landstraße_5.csv     | True: landstraße   | Pred: landstraße         | Conf: 0.646 | Status: Correct
+  File: data_stadt.csv            | True: stadt        | Pred: stadt              | Conf: 0.906 | Status: Correct
+  File: data_stadt_1.csv          | True: stadt        | Pred: stadt              | Conf: 0.894 | Status: Correct
+  File: data_stadt_2.csv          | True: stadt        | Pred: stadt              | Conf: 0.918 | Status: Correct
+  File: data_stadt_3.csv          | True: stadt        | Pred: stadt              | Conf: 0.753 | Status: Correct
+  File: data_stadt_4.csv          | True: stadt        | Pred: stadt              | Conf: 0.737 | Status: Correct
+
+--- Overall Confusion Matrix (File Level) ---
+Labels: ['autobahn', 'dorf', 'landstraße', 'stadt']
+[[2 0 0 0]
+ [0 0 2 0]
+ [2 0 3 1]
+ [0 0 0 5]]
+Confusion matrix plot saved to lofo_confusion_matrix_rotated_gravity.png
+
+--- Average Feature Importances (across LOFO folds) ---
+gyro_x_rms             0.028307
+gyro_gmv_max           0.025519
+gyro_gmv_rms           0.024045
+gyro_x_max             0.023835
+gyro_gmv_min           0.020561
+acc_jerk_median_mag    0.019766
+gyro_x_mean            0.019528
+acc_jerk_iqr_mag       0.018699
+gyro_sma_axes_total    0.018447
+gyro_x_median          0.018146
+acc_jerk_mean_mag      0.018044
+gyro_x_min             0.017715
+gyro_gmv_mean          0.017373
+gyro_z_median          0.013232
+acc_smv_iqr_diff       0.012861
+dtype: float64
+
+--- Training Final Model on ALL Data ---
+Preparing dataset for training...
+Training data shape: (1883, 160)
+Classes found: ['autobahn', 'dorf', 'landstraße', 'stadt']
+Class distribution:
+label
+stadt         0.312268
+autobahn      0.309081
+landstraße    0.294742
+dorf          0.083909
+Name: proportion, dtype: float64
+
+Training final model on the entire provided dataset...
+Model trained on full provided data.
+Final model trained successfully on all data.
+
+--- End of Script ---
+
+Process finished with exit code 0

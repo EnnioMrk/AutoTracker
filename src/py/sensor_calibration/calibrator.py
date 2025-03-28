@@ -48,7 +48,6 @@ class SensorCalibrator:
         self.driving_rotation = None
         self.gravity_magnitude = None
 
-
     def collect_stationary_measurements(self) -> tuple[list[list[Any]], list[list[Any]]]:
         """
         Collect acceleration measurements during a stationary period.
@@ -199,7 +198,7 @@ class SensorCalibrator:
         self.gyro_bias = np.mean(gyro_measurements, axis=0)
 
         # Update data processor
-        self.data_processor.update_bias(self.gyro_bias, self.accel_bias)#
+        self.data_processor.update_bias(self.gyro_bias, self.accel_bias)
         self.data_processor.calibrated = True
 
         print("Stationary bias calibration completed.")
@@ -254,7 +253,7 @@ class SensorCalibrator:
 
             ax, ay, az, gx, gy, gz, dt = data
 
-            stationary = self.data_processor.is_stationary([ax, ay, az], [gx, gy, gz])
+            stationary = self.data_processor.is_stationary([ax, ay, az], [gx, gy, gz], use_raw=True)
 
             if not stationary:
                 not_stationary_count += 1
@@ -284,7 +283,7 @@ class SensorCalibrator:
             ax, ay, az, gx, gy, gz, dt = data
 
             # Ensure we're still moving
-            stationary = self.data_processor.is_stationary([ax, ay, az], [gx, gy, gz])
+            stationary = self.data_processor.is_stationary([ax, ay, az], [gx, gy, gz], use_raw=True)
             if stationary:
                 print("Vehicle stopped moving during data collection.")
                 return None
@@ -345,14 +344,15 @@ class SensorCalibrator:
             print("Gravity alignment calibration failed.")
             return False
 
-        # Wait for and detect driving motion
-        if not self.detect_driving_motion():
-            return False
+        return True
+""" # Wait for and detect driving motion
+if not self.detect_driving_motion():
+    return False
 
-        # Collect driving data
-        driving_data = self.collect_driving_data()
-        if driving_data is None:
-            return False
+# Collect driving data
+driving_data = self.collect_driving_data()
+if driving_data is None:
+    return False
 
-        # Calibrate driving direction
-        return self.calibrate_driving_direction(driving_data)
+# Calibrate driving direction
+return self.calibrate_driving_direction(driving_data)"""
